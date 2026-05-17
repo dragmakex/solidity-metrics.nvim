@@ -1,6 +1,6 @@
 # solidity-metrics.nvim
 
-Production-ready Neovim integration for [`solidity-code-metrics`](https://www.npmjs.com/package/solidity-code-metrics).
+Neovim integration for [`solidity-code-metrics`](https://www.npmjs.com/package/solidity-code-metrics).
 
 It wraps the official npm package, discovers Solidity files, renders Markdown reports inside Neovim, and exports HTML reports that match the upstream tool.
 
@@ -30,7 +30,7 @@ It wraps the official npm package, discovers Solidity files, renders Markdown re
 
 ```lua
 {
-  "sticky/solidity-metrics.nvim",
+  "dragmakex/solidity-metrics.nvim",
   ft = "solidity",
   opts = {},
 }
@@ -47,8 +47,6 @@ The plugin will automatically prefer:
 1. `./node_modules/.bin/solidity-code-metrics`
 2. global `solidity-code-metrics`
 3. `npx` if `use_npx = true`
-
-This matches how many Neovim plugins and LSP setups prefer project-local Node tooling first.
 
 ### Using a local checkout of the upstream CLI
 
@@ -111,19 +109,6 @@ require("solidity_metrics").setup({
 
 `SolidityMetricsHtml` exports the **last request** by default.
 
-## Lua API
-
-```lua
-local sm = require("solidity_metrics")
-
-sm.file()
-sm.workspace()
-sm.workspace({ root = "/path/to/project" })
-sm.scope({ scope_file = "/path/to/scope.txt" })
-sm.export_html()
-sm.export_html({ kind = "workspace", root = "/path/to/project", output = "report.html" })
-```
-
 ## Scope files
 
 Scope files are passed directly to the upstream CLI. Each line should contain a file path or glob pattern accepted by `solidity-code-metrics`.
@@ -139,7 +124,6 @@ Scope files are passed directly to the upstream CLI. Each line should contain a 
 - Workspace analysis is implemented by building a temporary scope file from discovered `.sol` files.
 - If `rg` is installed, it is used for faster file discovery.
 - HTML export uses `vim.ui.open()` when available, otherwise `open`/`xdg-open`/`start`.
-- By default the plugin prefers project-local `node_modules/.bin/solidity-code-metrics`, then global PATH, then optional `npx` fallback.
 
 ## License
 
