@@ -1,0 +1,55 @@
+*solidity-metrics.nvim.txt*                Solidity metrics for Neovim
+
+Author: sticky
+License: MIT
+
+INTRODUCTION ~
+  solidity-metrics.nvim is a thin Neovim wrapper around the
+  `solidity-code-metrics` npm package.
+
+REQUIREMENTS ~
+  - Neovim 0.9+
+  - Node.js
+  - `solidity-code-metrics` available either as a project-local
+    `node_modules/.bin/solidity-code-metrics`, in PATH, or via a custom
+    command configured via |solidity-metrics-config|.
+
+COMMANDS ~
+  :SolidityMetricsFile
+      Run metrics for the current buffer.
+
+  :SolidityMetricsWorkspace [path]
+      Run metrics for the detected workspace root or a supplied directory.
+
+  :SolidityMetricsScope [file]
+      Run metrics using a scope file. Defaults to `scope.txt` in the root.
+
+  :SolidityMetricsHtml [output]
+      Export the last request as HTML. Defaults to `solidity-metrics.html`
+      in the request root.
+
+CONFIGURATION ~
+                                                        *solidity-metrics-config*
+>
+  require('solidity_metrics').setup({
+    cmd = nil,
+    prefer_local = true,
+    local_bin = 'solidity-code-metrics',
+    use_npx = false,
+    exclude = {
+      '**/node_modules/**',
+      '**/mock*/**',
+      '**/test*/**',
+      '**/migrations/**',
+      '**/Migrations.sol',
+    },
+    output = {
+      kind = 'split',
+      split = 'botright new',
+    },
+  })
+<
+
+HEALTH ~
+  Run `:checkhealth solidity_metrics`.
+
