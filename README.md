@@ -13,9 +13,6 @@ It wraps the official npm package, discovers Solidity files, renders a native Ne
 - Native Neovim charts for risk, source lines, summary, AST, function calls, and assembly calls via `image.nvim`
 - Native Neovim inheritance and call graph rendering via Graphviz + `image.nvim`
 - Export full HTML reports
-- Health checks for Node / ripgrep / metrics command
-- No Lua dependencies in this plugin itself
-- Visual report mode requires `image.nvim`, Node.js, and Graphviz `dot`
 
 ## Requirements
 
