@@ -34,11 +34,44 @@ local function resolve_cmd(root)
     return { 'solidity-code-metrics' }, 'global'
   end
 
-  if config.options.use_npx then
-    return { 'npx', '--yes', config.options.npx_package }, 'npx'
+  return { 'solidity-code-metrics' }, 'missing'
+end
+
+local function resolve_package_root(root)
+  local cmd, source = resolve_cmd(root)
+
+  if source == 'custom' then
+    local script = cmd[2]
+    local package_root = util.package_root_from_cli(script)
+    if package_root then
+      return package_root, source
+    end
   end
 
-  return { 'solidity-code-metrics' }, 'missing'
+  local local_package = util.join(root, 'node_modules', 'solidity-code-metrics')
+  if util.is_file(util.join(local_package, 'package.json')) then
+    return local_package, 'local-package'
+  end
+
+  if source == 'local' or source == 'global' then
+    local executable = util.resolve_executable(vim.fn.exepath 'solidity-code-metrics')
+    local package_root = util.package_root_from_cli(executable)
+    if package_root then
+      return package_root, 'resolved-' .. source
+    end
+  end
+
+  if source == 'global' and vim.fn.executable 'npm' == 1 then
+    local result = vim.system({ 'npm', 'root', '-g' }, { text = true }):wait()
+    if result.code == 0 then
+      local package_root = util.join(vim.trim(result.stdout), 'solidity-code-metrics')
+      if util.is_file(util.join(package_root, 'package.json')) then
+        return package_root, 'npm-global'
+      end
+    end
+  end
+
+  return nil, source
 end
 
 local function write_scope_file(root, paths)
@@ -77,6 +110,7 @@ function M.build_request(opts)
       root = root,
       display_name = vim.fs.basename(scope_file),
       args = { '--scope-file', scope_file },
+      scope_file = scope_file,
     }
   end
 
@@ -93,6 +127,7 @@ function M.build_request(opts)
       root = root,
       display_name = vim.fs.basename(file),
       args = { file },
+      file = file,
     }
   end
 
@@ -144,6 +179,55 @@ function M.run(request, opts, callback)
   end
 end
 
+function M.run_structured(request, callback)
+  local package_root, source = resolve_package_root(request.root)
+  if not package_root then
+    callback(false, ('solidity-code-metrics package could not be resolved for native rendering (%s)'):format(source))
+    return
+  end
+
+  local request_path = vim.fn.tempname() .. '.json'
+  vim.fn.writefile({ vim.json.encode {
+    kind = request.kind,
+    root = request.root,
+    display_name = request.display_name,
+    file = request.file,
+    scope_file = request.scope_file,
+    selected_files = request.selected_files,
+    exclude = config.options.exclude,
+    limit = 50000,
+  } }, request_path)
+
+  local script = util.join(util.plugin_root(), 'scripts', 'report_data.js')
+  local result = vim.system({ 'node', script, request_path, package_root }, {
+    cwd = request.root,
+    text = true,
+    timeout = config.options.timeout,
+  }, function(output)
+    cleanup(request_path)
+
+    if output.code ~= 0 then
+      local message = output.stderr ~= '' and output.stderr or output.stdout ~= '' and output.stdout or 'solidity-code-metrics native report failed'
+      callback(false, vim.trim(message))
+      return
+    end
+
+    local ok, decoded = pcall(vim.json.decode, output.stdout)
+    if not ok then
+      callback(false, 'Failed to decode native report payload')
+      return
+    end
+
+    cleanup(request.temp_scope_file)
+    callback(true, decoded)
+  end)
+
+  if not result then
+    cleanup(request_path)
+    callback(false, 'Failed to start native report process')
+  end
+end
+
 function M.detect_command(root)
   local resolved_root = root or util.find_root(util.buf_dir(0), config.options.workspace_root_markers)
   local cmd, source = resolve_cmd(resolved_root)
@@ -151,9 +235,6 @@ function M.detect_command(root)
 
   if source == 'local' then
     return true, table.concat(cmd, ' '), source
-  end
-  if executable == 'npx' then
-    return vim.fn.executable 'npx' == 1, table.concat(cmd, ' '), source
   end
   if executable == 'node' or executable == 'bun' then
     local runtime_ok = vim.fn.executable(executable) == 1

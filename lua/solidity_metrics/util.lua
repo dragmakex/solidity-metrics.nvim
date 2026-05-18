@@ -2,6 +2,7 @@ local uv = vim.uv or vim.loop
 
 local M = {}
 local matcher_cache = {}
+local plugin_root
 
 function M.is_windows()
   return vim.fn.has 'win32' == 1 or vim.fn.has 'win64' == 1
@@ -125,6 +126,44 @@ function M.to_list(value)
     return vim.deepcopy(value)
   end
   return { value }
+end
+
+function M.package_root_from_cli(script)
+  if not script or script == '' then
+    return nil
+  end
+
+  local normalized = M.normalize(script)
+  if normalized:sub(-11) == '/src/cli.js' then
+    return vim.fs.dirname(vim.fs.dirname(normalized))
+  end
+
+  local parent = vim.fs.dirname(normalized)
+  if parent and M.is_file(M.join(parent, 'package.json')) then
+    return parent
+  end
+
+  local grandparent = parent and vim.fs.dirname(parent) or nil
+  if grandparent and M.is_file(M.join(grandparent, 'package.json')) then
+    return grandparent
+  end
+end
+
+function M.resolve_executable(path)
+  if not path or path == '' then
+    return nil
+  end
+  return uv.fs_realpath(path) or path
+end
+
+function M.plugin_root()
+  if plugin_root then
+    return plugin_root
+  end
+
+  local source = debug.getinfo(1, 'S').source:sub(2)
+  plugin_root = vim.fs.dirname(vim.fs.dirname(vim.fs.dirname(source)))
+  return plugin_root
 end
 
 return M

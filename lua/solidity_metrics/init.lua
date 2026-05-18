@@ -1,7 +1,9 @@
 local config = require 'solidity_metrics.config'
+local report = require 'solidity_metrics.report'
 local runner = require 'solidity_metrics.runner'
 local util = require 'solidity_metrics.util'
 local view = require 'solidity_metrics.view'
+local visuals = require 'solidity_metrics.visuals'
 
 local M = {}
 
@@ -25,16 +27,72 @@ local function build_request(opts)
   notify(err, vim.log.levels.ERROR)
 end
 
+local function refresh_request(request)
+  if not request then
+    return nil
+  end
+
+  if request.kind == 'workspace' and (not request.temp_scope_file or not util.exists(request.temp_scope_file)) then
+    return build_request { kind = 'workspace', root = request.root }
+  end
+
+  return request
+end
+
 local function run_markdown(request)
   notify(('Running Solidity Metrics for %s…'):format(request.display_name))
-  runner.run(request, {}, function(ok, output)
-    if not ok then
-      notify(output, vim.log.levels.ERROR)
+  runner.run_structured(request, function(ok, output)
+    if ok then
+      vim.schedule(function()
+        if config.options.visual.enabled then
+          local prepared, prepare_err = visuals.prepare {
+            markdown = output.markdown,
+            totals = output.totals,
+            dot_graphs = output.dot_graphs or {},
+            charts = output.charts or {},
+          }
+          if prepared then
+            local markdown = report.render_visual_text(output.markdown)
+            local buf, render_err = view.render_visual(markdown, prepared, ('solidity-metrics://%s'):format(request.display_name))
+            if buf then
+              return
+            end
+            if config.options.visual.strict then
+              notify(render_err or 'Failed to render visual report', vim.log.levels.ERROR)
+              return
+            end
+            notify(render_err or 'Failed to render visual report, falling back', vim.log.levels.WARN)
+          else
+            if config.options.visual.strict then
+              notify(prepare_err or 'Visual report requirements are missing', vim.log.levels.ERROR)
+              return
+            end
+            notify(prepare_err or 'Visual report requirements are missing, falling back', vim.log.levels.WARN)
+          end
+        end
+
+        local rendered = report.render_native {
+          markdown = output.markdown,
+          totals = output.totals,
+          dot_graphs = output.dot_graphs or {},
+          charts = output.charts or {},
+        }
+        view.render_ansi(rendered, ('solidity-metrics://%s'):format(request.display_name))
+      end)
       return
     end
 
-    vim.schedule(function()
-      view.render(output, ('solidity-metrics://%s.md'):format(request.display_name))
+    notify(output, vim.log.levels.WARN)
+    runner.run(request, {}, function(fallback_ok, fallback_output)
+      if not fallback_ok then
+        notify(fallback_output, vim.log.levels.ERROR)
+        return
+      end
+
+      vim.schedule(function()
+        local markdown = report.sanitize_for_nvim(fallback_output)
+        view.render(markdown, ('solidity-metrics://%s.md'):format(request.display_name))
+      end)
     end)
   end)
 end
@@ -74,7 +132,7 @@ function M.scope(opts)
 end
 
 function M.export_html(opts)
-  local request = state.last_request
+  local request = refresh_request(state.last_request)
   if opts and opts.kind then
     request = build_request(opts)
   elseif not request then
@@ -84,6 +142,8 @@ function M.export_html(opts)
   if not request then
     return
   end
+
+  state.last_request = request
 
   local output = opts and opts.output
   if not output or output == '' then

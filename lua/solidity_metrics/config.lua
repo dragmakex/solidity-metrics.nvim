@@ -10,8 +10,6 @@ M.defaults = {
   cmd = nil,
   prefer_local = true,
   local_bin = 'solidity-code-metrics',
-  use_npx = false,
-  npx_package = 'solidity-code-metrics@0.0.28',
   timeout = 120000,
   scopefile = 'scope.txt',
   workspace_root_markers = {
@@ -43,6 +41,10 @@ M.defaults = {
     open = true,
     filename = 'solidity-metrics.html',
   },
+  visual = {
+    enabled = true,
+    strict = true,
+  },
   notify = true,
 }
 
@@ -55,14 +57,13 @@ function M.validate(opts)
     cmd = { opts.cmd, { 'table', 'function' }, true },
     prefer_local = { opts.prefer_local, 'boolean', true },
     local_bin = { opts.local_bin, 'string', true },
-    use_npx = { opts.use_npx, 'boolean', true },
-    npx_package = { opts.npx_package, 'string', true },
     timeout = { opts.timeout, 'number', true },
     scopefile = { opts.scopefile, 'string', true },
     workspace_root_markers = { opts.workspace_root_markers, 'table', true },
     exclude = { opts.exclude, 'table', true },
     output = { opts.output, 'table', true },
     html = { opts.html, 'table', true },
+    visual = { opts.visual, 'table', true },
     notify = { opts.notify, 'boolean', true },
   }
 

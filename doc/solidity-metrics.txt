@@ -5,10 +5,14 @@ License: MIT
 
 INTRODUCTION ~
   solidity-metrics.nvim is a thin Neovim wrapper around the
-  `solidity-code-metrics` npm package.
+  `solidity-code-metrics` npm package. The in-editor view renders a native
+  Neovim report with inline charts and graphs via image.nvim and Graphviz.
 
 REQUIREMENTS ~
   - Neovim 0.9+
+  - Node.js
+  - image.nvim configured and working
+  - Graphviz `dot`
   - Node.js
   - `solidity-code-metrics` available either as a project-local
     `node_modules/.bin/solidity-code-metrics`, in PATH, or via a custom
@@ -28,6 +32,11 @@ COMMANDS ~
       Export the last request as HTML. Defaults to `solidity-metrics.html`
       in the request root.
 
+NOTES ~
+  Native charts and graphs are rendered inline inside Neovim via image.nvim.
+  Visual report mode requires Graphviz `dot` and image.nvim.
+  Use :SolidityMetricsHtml for the full exported HTML report.
+
 CONFIGURATION ~
                                                         *solidity-metrics-config*
 >
@@ -35,7 +44,6 @@ CONFIGURATION ~
     cmd = nil,
     prefer_local = true,
     local_bin = 'solidity-code-metrics',
-    use_npx = false,
     exclude = {
       '**/node_modules/**',
       '**/mock*/**',
