@@ -156,6 +156,10 @@ async function generateReport(request, metricsPackageRoot) {
   const requireFromPackage = createRequire(packageJsonPath);
   const { SolidityMetricsContainer } = requireFromPackage('./src/index.js');
   const glob = requireFromPackage('glob');
+  let exportAsHtml;
+  if (request.output_html) {
+    ({ exportAsHtml } = requireFromPackage('./src/metrics/helper.js'));
+  }
 
   const excludeGlobs = request.exclude || [];
   const baseOptions = {
@@ -208,9 +212,14 @@ async function generateReport(request, metricsPackageRoot) {
   }
 
   const totals = metrics.totals();
+  const markdown = await metrics.generateReportMarkdown();
+
+  if (request.output_html) {
+    return { __html: exportAsHtml(markdown, totals, dotGraphs) };
+  }
 
   return {
-    markdown: await metrics.generateReportMarkdown(),
+    markdown,
     totals,
     dot_graphs: dotGraphs,
     charts: {
@@ -235,7 +244,11 @@ async function main() {
   try {
     const request = readJson(requestPath);
     const report = await generateReport(request, metricsPackageRoot);
-    process.stdout.write(JSON.stringify(report));
+    if (request.output_html) {
+      process.stdout.write(report.__html);
+    } else {
+      process.stdout.write(JSON.stringify(report));
+    }
   } catch (error) {
     fail(error && error.stack ? error.stack : error);
   }

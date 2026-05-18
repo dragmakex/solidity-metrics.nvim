@@ -131,7 +131,10 @@ function M.build_request(opts)
     }
   end
 
-  local selected = files.collect_solidity_files(root, { exclude = opts.exclude })
+  local selected, info = files.collect_solidity_files(root, {
+    exclude = opts.exclude,
+    limit = config.options.file_limit,
+  })
   if vim.tbl_isempty(selected) then
     return nil, ('No Solidity files found in %s'):format(root)
   end
@@ -144,6 +147,9 @@ function M.build_request(opts)
     args = { '--scope-file', scope_file },
     temp_scope_file = scope_file,
     selected_files = selected,
+    truncated = info and info.truncated or false,
+    discovered_count = info and info.total or #selected,
+    limit = info and info.limit or config.options.file_limit,
   }
 end
 
@@ -179,7 +185,8 @@ function M.run(request, opts, callback)
   end
 end
 
-function M.run_structured(request, callback)
+local function run_structured_internal(request, opts, callback)
+  opts = opts or {}
   local package_root, source = resolve_package_root(request.root)
   if not package_root then
     callback(false, ('solidity-code-metrics package could not be resolved for native rendering (%s)'):format(source))
@@ -195,7 +202,8 @@ function M.run_structured(request, callback)
     scope_file = request.scope_file,
     selected_files = request.selected_files,
     exclude = config.options.exclude,
-    limit = 50000,
+    limit = config.options.file_limit,
+    output_html = opts.html and true or false,
   } }, request_path)
 
   local script = util.join(util.plugin_root(), 'scripts', 'report_data.js')
@@ -209,6 +217,12 @@ function M.run_structured(request, callback)
     if output.code ~= 0 then
       local message = output.stderr ~= '' and output.stderr or output.stdout ~= '' and output.stdout or 'solidity-code-metrics native report failed'
       callback(false, vim.trim(message))
+      return
+    end
+
+    if opts.html then
+      cleanup(request.temp_scope_file)
+      callback(true, output.stdout)
       return
     end
 
@@ -226,6 +240,14 @@ function M.run_structured(request, callback)
     cleanup(request_path)
     callback(false, 'Failed to start native report process')
   end
+end
+
+function M.run_structured(request, callback)
+  run_structured_internal(request, { html = false }, callback)
+end
+
+function M.run_structured_html(request, callback)
+  run_structured_internal(request, { html = true }, callback)
 end
 
 function M.detect_command(root)

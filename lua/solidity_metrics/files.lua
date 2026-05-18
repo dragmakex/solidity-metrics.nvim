@@ -48,6 +48,7 @@ end
 function M.collect_solidity_files(root, opts)
   opts = opts or {}
   local exclude = opts.exclude or config.options.exclude
+  local limit = opts.limit or config.options.file_limit
   local found = list_with_rg(root)
   if not found then
     found = {}
@@ -63,6 +64,15 @@ function M.collect_solidity_files(root, opts)
   end
 
   table.sort(filtered)
+
+  if limit and limit > 0 and #filtered > limit then
+    local capped = {}
+    for i = 1, limit do
+      capped[i] = filtered[i]
+    end
+    return capped, { truncated = true, total = #filtered, limit = limit }
+  end
+
   return filtered
 end
 

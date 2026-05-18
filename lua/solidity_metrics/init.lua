@@ -39,8 +39,21 @@ local function refresh_request(request)
   return request
 end
 
+local function maybe_notify_truncated(request)
+  if request and request.truncated then
+    notify(
+      ('Solidity Metrics: capped analysis at %d of %d files (file_limit). Increase via setup({ file_limit = N }).'):format(
+        request.limit or 0,
+        request.discovered_count or 0
+      ),
+      vim.log.levels.WARN
+    )
+  end
+end
+
 local function run_markdown(request)
   notify(('Running Solidity Metrics for %s…'):format(request.display_name))
+  maybe_notify_truncated(request)
   runner.run_structured(request, function(ok, output)
     if ok then
       vim.schedule(function()
@@ -154,12 +167,9 @@ function M.export_html(opts)
   output = vim.fs.normalize(output)
 
   notify(('Exporting Solidity Metrics HTML to %s'):format(output))
-  runner.run(request, { html = true }, function(ok, html)
-    if not ok then
-      notify(html, vim.log.levels.ERROR)
-      return
-    end
+  maybe_notify_truncated(request)
 
+  local function write_html(html)
     vim.schedule(function()
       vim.fn.mkdir(vim.fs.dirname(output), 'p')
       vim.fn.writefile(vim.split(html, '\n', { plain = true }), output)
@@ -168,6 +178,22 @@ function M.export_html(opts)
       if config.options.html.open then
         util.system_open(output)
       end
+    end)
+  end
+
+  runner.run_structured_html(request, function(ok, html)
+    if ok then
+      write_html(html)
+      return
+    end
+
+    notify(html, vim.log.levels.WARN)
+    runner.run(request, { html = true }, function(fallback_ok, fallback_html)
+      if not fallback_ok then
+        notify(fallback_html, vim.log.levels.ERROR)
+        return
+      end
+      write_html(fallback_html)
     end)
   end)
 end

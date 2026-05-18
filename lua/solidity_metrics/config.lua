@@ -12,6 +12,7 @@ M.defaults = {
   local_bin = 'solidity-code-metrics',
   timeout = 120000,
   scopefile = 'scope.txt',
+  file_limit = 5000,
   workspace_root_markers = {
     '.git',
     'foundry.toml',
@@ -59,6 +60,7 @@ function M.validate(opts)
     local_bin = { opts.local_bin, 'string', true },
     timeout = { opts.timeout, 'number', true },
     scopefile = { opts.scopefile, 'string', true },
+    file_limit = { opts.file_limit, 'number', true },
     workspace_root_markers = { opts.workspace_root_markers, 'table', true },
     exclude = { opts.exclude, 'table', true },
     output = { opts.output, 'table', true },
